@@ -9,6 +9,12 @@ source includes/depends.sh
 
 export EXIT_STATUS=0
 
+# Disable pre-commit errors if there is no config file
+export PRE_COMMIT_ALLOW_NO_CONFIG=1
+
+# Import public key
+export KEY_AGE=$(cat .age.pub)
+
 if [ ! -r '.k8s_password_hooks' ]; then
   export EXIT_STATUS=0
 fi
@@ -72,7 +78,7 @@ function do_check_age_pub_key() {
 }
 
 function do_get_files_encrypt() {
-  echo "- Pre-commit unencrypted secrets check"
+  echo "- Pre-commit unencrypted secrets check:"
 
   # The directory to search
   SEARCH_DIR="."
@@ -100,7 +106,6 @@ function do_get_files_encrypt() {
       if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && ! grep -q "sops:" "$file" && ! grep -q "encrypted_regex: ^(data|stringData)$" "$file"; then
         # Add the file to the result array
         FILES_ENCRYPT+=("$file")
-        export FILES_ENCRYPT=${FILES_ENCRYPT[@]}
         echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $file"
         # Increment the result count
         export FILES_ENCRYPT_COUNT=$((FILES_ENCRYPT_COUNT + 1))
@@ -115,51 +120,56 @@ function do_get_files_encrypt() {
     export EXIT_STATUS=0
   else
     # Announce the number of files to encrypt
-    echo
     if [ "$FILES_ENCRYPT_COUNT" -eq 1 ]; then
       echo -e "  ${YELLOW}SUMMARY:${ENDCOLOR} There is $FILES_ENCRYPT_COUNT file to encrypt"
     else
       echo -e "  ${YELLOW}SUMMARY:${ENDCOLOR} There are $FILES_ENCRYPT_COUNT files to encrypt"
     fi
+    export EXIT_STATUS=0
   fi
+}
+
+function do_pretty_processing(){
+  CMD=$1
+
+  # Display pretty processing message
+    echo -en "  ${YELLOW}PROCESSING:${ENDCOLOR} ${FILE[0]}"
+    sleep 0.1
+    echo -n "."
+    sleep 0.1
+    echo -ne "."
+    sleep 0.1
+    echo -ne "."
+    sleep 0.1
+    echo -ne "\t"
+    sleep 0.1
+    $CMD
+    # Check if the command was successful
+    if [[ $? -ne 0 ]]; then
+      echo -ne "  ${BOLDRED}ERROR:${ENDCOLOR} while processing - Exiting\n"
+      exit 1
+    else
+      echo -ne "  ${GREEN}OK.${ENDCOLOR}\n"
+    fi
 }
 
 function do_encrypt_files() {
   # Start file encryption
   echo
   if [ "$FILES_ENCRYPT_COUNT" -eq 1 ]; then
-    echo -e "- Encrypting file..."
+    echo -e "- Encrypting file:"
   else
-    echo -e "- Encrypting files..."
+    echo -e "- Encrypting files:"
   fi
-
-  # Import public key
-  export KEY_AGE=$(cat .age.pub)
 
   # Iterate over ${FILES_ENCRYPT[@]} and encrypt each file
   for FILE in "${FILES_ENCRYPT[@]}"; do
-    echo "  Encrypting $FILE"
-
-    # Encrypt the file
-    sops --age=$KEY_AGE --encrypt --encrypted-regex '^(data|stringData)$' --in-place $FILE
-
-    # Add decrypted file to next git commit to reduce IDE weirdness
-    git add $FILE
-
-    # Check if the encryption was successful
-    if [[ $? -ne 0 ]]; then
-      echo "  ${BOLDRED}ERROR:${ENDCOLOR} while encrypting $FILE - Exiting"
-      exit 1
-    else
-      # Add encrypted file to next git commit
-      git add -f $FILE
-    fi
-    echo
+    do_pretty_processing "sops --age=$KEY_AGE --encrypt --encrypted-regex ^(data|stringData)$ --in-place $FILE"
+    #git add -f $FILE
   done
-  echo -e "  ${GREEN}OK.${ENDCOLOR}"
 
   # Commit the encrypted files
-  git commit -m "Encrypted files: ${FILES_ENCRYPT[@]}"
+  #git commit -m "Encrypted files: ${FILES_ENCRYPT[@]}"
 
   EXIT_STATUS=0
 }
