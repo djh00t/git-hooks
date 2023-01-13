@@ -6,7 +6,7 @@ PR's and feature requests welcomed.
 ## Installer
 The installer is written for and intended to run on both MacOS and Linux.
 The installer must be run from the root of a git repo.
-**Note:** *The installer will overwrite other hooks if you already have them configured. This may be fixed in future, feel free to submit a PR if you're quicker than me.*
+**Note:** *The installer will not overwrite other hooks if you already have them configured. Adding includes/plugins that would allow others to be included may be added in future.*
 
 ## Current hooks:
    - **pre-commit:**

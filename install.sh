@@ -21,6 +21,9 @@ echo "Symlinking the pre-commit hook..."
 echo
 if [[ ! -f .git/hooks/pre-commit ]]; then
   ln -s ../../bash_includes/git_hooks/pre-commit .git/hooks/pre-commit
+else
+  echo "Error: A pre-commit hook already exists"
+  exit 1
 fi
 
 # Symlink the post-commit hook
@@ -28,4 +31,7 @@ echo "Symlinking the post-commit hook..."
 echo
 if [[ ! -f .git/hooks/post-commit ]]; then
   ln -s ../../bash_includes/git_hooks/post-commit .git/hooks/post-commit
+else
+  echo "Error: A post-commit hook already exists"
+  exit 1
 fi
