@@ -16,11 +16,25 @@ if [[ ! -d .git/hooks ]]; then
   mkdir .git/hooks
 fi
 
+# Make sure that an includes directory exists in the repo root
+echo "Making sure that the includes directory exists..."
+echo
+if [[ ! -d includes ]]; then
+  mkdir includes
+fi
+
+# Add git-hooks as a submodule in the repo includes directory
+cd includes
+echo "Adding git-hooks as a submodule..."
+git submodule add git@github.com:djh00t/git-hooks.git
+git add .gitmodules git-hooks
+git commit -m "added git-hooks submodule"
+
 # Symlink the pre-commit hook
 echo "Symlinking the pre-commit hook..."
 echo
 if [[ ! -f .git/hooks/pre-commit ]]; then
-  ln -s ../../bash_includes/git_hooks/pre-commit .git/hooks/pre-commit
+  ln -s includes/git_hooks/pre-commit .git/hooks/pre-commit
 else
   echo "Error: A pre-commit hook already exists"
   exit 1
@@ -30,7 +44,7 @@ fi
 echo "Symlinking the post-commit hook..."
 echo
 if [[ ! -f .git/hooks/post-commit ]]; then
-  ln -s ../../bash_includes/git_hooks/post-commit .git/hooks/post-commit
+  ln -s includes/git_hooks/post-commit .git/hooks/post-commit
 else
   echo "Error: A post-commit hook already exists"
   exit 1
