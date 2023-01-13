@@ -1,2 +1,4 @@
-secrets**.yaml
+secret**
 .age.pub
+decrypt.sh
+encrypt.sh
