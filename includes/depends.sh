@@ -1,209 +1,146 @@
 #!/bin/bash
 ###
-### Post-commit hook that encrypts files containing age encrypted kubernetes secrets
-### File should be .git/hooks/post-commit and executable
+### Dependency installer for git hooks
+###
 
-# Add dependencies and includes
-# Add color include if $ENDCOLOR is not defined
-if [ -z "$ENDCOLOR" ]; then
-  source includes/color.sh
-fi
-
-# Add dependencies and includes if $pip isn't defined
-if [ -z "$pip" ]; then
-  source includes/depends.sh
-fi
-
-# Setup EXIT_STATUS variable
-export EXIT_STATUS=0
-
-# Check if .k8s_password_hooks exists
-if [ ! -r '.k8s_password_hooks' ]; then
-  export EXIT_STATUS=0
-fi
-
-function do_check_age_prv_key() {
-  # Ensure that age private key exists
-
-  # The current user
-  USER=$(whoami)
-
-  # The path for linux
-  LINUX_PATH="~/.config/sops/age/keys.txt"
-
-  # The path for MacOS
-  MACOS_PATH="/Users/$USER/.config/sops/age/keys.txt"
-
-  if [ -f "$LINUX_PATH" ]; then
-    echo '#'
-    echo -e "# ${GREEN}Age keys.txt found in $LINUX_PATH...${ENDCOLOR}"
-    echo '#'
-  elif [ -f "$MACOS_PATH" ]; then
-    echo '#'
-    echo -e "# ${GREEN}Age keys.txt found in $MACOS_PATH...${ENDCOLOR}"
-    echo '#'
-  else
-    echo '#'
-    echo -e "# ${RED}╔══════════════════════════════════════════════════════════════╗${ENDCOLOR}"
-    echo -e "# ${RED}║          ${BOLDYELLOW} !!! ERROR: Age private key not found !!!           ${ENDCOLOR}${RED}║${ENDCOLOR}"
-    echo -e "# ${RED}╠══════════════════════════════════════════════════════════════╣${ENDCOLOR}"
-    echo -e "# ${RED}║${ENDCOLOR} Please retrieve the age private key from the secrets manager ${ENDCOLOR}${RED}║${ENDCOLOR}"
-    echo -e "# ${RED}║${ENDCOLOR} and save it to ~/.config/sops/age/keys.txt                   ${ENDCOLOR}${RED}║${ENDCOLOR}"
-    echo -e "# ${RED}╚══════════════════════════════════════════════════════════════╝${ENDCOLOR}"
-    echo '#'
-    sleep 3
-    export EXIT_STATUS=1
-  fi
-
-}
-
-function do_check_age_pub_key() {
-  # Ensure that age public key exists
- 
-  PUB_AGE=".age.pub"
-
-  if [ -f "$PUB_AGE" ]; then
-    echo '#'
-    echo -e "# ${GREEN}Age $PUB_AGE found in repo...${ENDCOLOR}"
-    echo '#'
-  else
-    echo '#'
-    echo -e "# ${RED}╔══════════════════════════════════════════════════════════════╗${ENDCOLOR}"
-    echo -e "# ${RED}║          ${BOLDYELLOW} !!! ERROR: Age public key not found !!!           ${ENDCOLOR}${RED}║${ENDCOLOR}"
-    echo -e "# ${RED}╠══════════════════════════════════════════════════════════════╣${ENDCOLOR}"
-    echo -e "# ${RED}║${ENDCOLOR} Please retrieve the age public key from the secrets manager ${ENDCOLOR}${RED}║${ENDCOLOR}"
-    echo -e "# ${RED}║${ENDCOLOR} and save it to .age.pub in the root of your repo.           ${ENDCOLOR}${RED}║${ENDCOLOR}"
-    echo -e "# ${RED}╚══════════════════════════════════════════════════════════════╝${ENDCOLOR}"
-    echo '#'
-    sleep 3
-    export EXIT_STATUS=1
-  fi
-
-}
-
-function do_get_files_encrypt() {
-  echo '#'
-  echo '# PRE-COMMIT ENCRYPTION CHECK'
-  echo '#'
-
-  # The directory to search
-  SEARCH_DIR="."
-
-  # The array to store the result files
-  FILES_ENCRYPT=()
-
-  # The variable to store the number of result files
-  FILES_ENCRYPT_COUNT=0
-
-  # Check if the ignore file exists
-  if [ -f "$SEARCH_DIR/.k8s_password_hooks_ignore" ]; then
-    # Read the ignore file and create an array of ignored files
-    IGNORE_FILES=($(cat "$SEARCH_DIR/.k8s_password_hooks_ignore"))
-  else
-    # Create an empty array of ignored files
-    IGNORE_FILES=()
-  fi
-
-  # Find all yaml files in the search directory
-  for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
-    # Check if the file is in the ignore list
-    if [[ ! " ${IGNORE_FILES[@]} " =~ " ${file} " ]]; then
-      # Check if the file contains "kind: Secret" and "stringData:" but does not contain "sops:" and "encrypted_regex: ^(data|stringData)$"
-      if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && ! grep -q "sops:" "$file" && ! grep -q "encrypted_regex: ^(data|stringData)$" "$file"; then
-        # Add the file to the result array
-        FILES_ENCRYPT+=("$file")
-        echo "# Adding $file"
-        # Increment the result count
-        FILES_ENCRYPT_COUNT=$((FILES_ENCRYPT_COUNT + 1))
-      fi
-    fi
-  done
-
-  # Check to see if any files were found
-  if [ -z "$FILES_ENCRYPT" ]; then
-    echo "# No files to encrypt"
-    echo '#'
-    export EXIT_STATUS=0
-  else
-    # Announce the number of files to encrypt
-    echo '#'
-    echo "# There are $FILES_ENCRYPT_COUNT files to encrypt"
-  fi
-}
-
-function do_encrypt_files() {
-  # Start file encryption
-  echo '#'
-  echo "# Encrypting files..."
-  echo '#'
-
-  # Import public key
-  export KEY_AGE=$(cat .age.pub)
-
-  # Iterate over ${FILES_ENCRYPT[@]} and encrypt each file
-  for FILE in "${FILES_ENCRYPT[@]}"; do
-    echo "# Encrypting $FILE"
-
-    # Encrypt the file
-    sops --age=$KEY_AGE --encrypt --encrypted-regex '^(data|stringData)$' --in-place $FILE
-
-    # Add decrypted file to next git commit to reduce IDE weirdness
-    git add $FILE
-
-    # Check if the encryption was successful
-    if [[ $? -ne 0 ]]; then
-      echo "Error encrypting $FILE - Exiting"
-      exit 1
+# Detect operating system
+function detect_os_and_version() {
+    # Detect the OS & Version
+    echo "- Detecting OS and version..."
+    OS=""
+    OS_VERSION=""
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        export OS=$(cat /etc/os-release | (grep -v 'VERSION_ID=') | (grep -E 'ID=') | sort | sed 's/VERSION_ID=//;s/ID=//;s/"//g;')
+        export OS_VERSION=$(cat /etc/os-release | grep -E 'VERSION_ID=' | cut -d'"' -f2)
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        export OS=$(sw_vers -productName)
+        export OS_VERSION=$(sw_vers -productVersion)
+    elif [[ "$OSTYPE" == "win32" ]]; then
+        export OS="Windows"
     else
-      # Add encrypted file to next git commit
-      git add $FILE
-      echo '#'
+        echo -e "  ${BOLDRED}Unknown OS - exiting${ENDCOLOR}"
+        exit 1
     fi
-  done
 
-  echo "# Encryption complete"
-  
-  # Commit the encrypted files
-  git commit -m "Encrypted files: ${FILES_ENCRYPT[@]}"
-  
-  EXIT_STATUS=0
+    # If both $OS and $OS_VERSION are defined, print the OS and version
+    if [ -n "$OS" ] && [ -n "$OS_VERSION" ]; then
+        echo -e "  ${BOLDBLUE}OS:${ENDCOLOR}       ${BLUE}$OS${ENDCOLOR}"
+        echo -e "  ${BOLDBLUE}Version:${ENDCOLOR}  ${BLUE}$OS_VERSION${ENDCOLOR}"
+        echo
+    else
+        echo -e " ${BOLDRED}Could not detect OS and version${ENDCOLOR}"
+        exit 1
+    fi
 }
 
-# Ensure that age private key is configured
-if [ $EXIT_STATUS = 0 ]; then
-  do_check_age_prv_key
-  do_check_age_pub_key
-fi
+function do_install_homebrew() {
+    # Check if Homebrew is installed first
+    if command -v brew &>/dev/null; then
+        echo -e " ${GREEN}Homebrew is already installed.${ENDCOLOR}"
+    else
+        echo -e " ${YELLOW}Homebrew is not installed. Installing...${ENDCOLOR}"
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    fi
+}
 
-# Get list of files to encrypt
-if [ $EXIT_STATUS = 0 ]; then
-  do_get_files_encrypt
-fi
+function do_configure_os_executables() {
+    export python3=$(command -v python3)
+    export pip=$(command -v pip3)
+    export ts=$(command -v ts)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        brew=$(command -v brew)
+    fi
+}
 
-# Encrypt files
-# If $FILES_ENCRYPT_COUNT is greater than 0 run do_encrypt_files
-if [ $EXIT_STATUS = 0 ] && [ $FILES_ENCRYPT_COUNT -gt 0 ]; then
-  do_encrypt_files
-fi
+function do_install_pip3_packages() {
+    # Install the pip packages
+    echo
+    echo "- Checking required pip packages..."
+    # pre-commit
+    if ! command -v pre-commit &>/dev/null; then
+        echo -e "  ${YELLOW}pre-commit could not be found, installing now${ENDCOLOR}"
+        $(command -v pip3) install pre-commit
+    fi
 
-###
-### Run pre-commit hooks
-###
-INSTALL_PYTHON=$(which python3)
-ARGS=(hook-impl --config=.pre-commit-config.yaml --hook-type=pre-commit)
-pre-commit "${ARGS[@]}"
+    # age
+    if ! command -v age &>/dev/null; then
+        echo -e "${YELLOW}age could not be found, installing now${ENDCOLOR}"
+        $(command -v pip3) install age
+    fi
 
+    echo -e "  ${GREEN}OK.${ENDCOLOR}"
+    echo
+}
 
-HERE="$(cd "$(dirname "$0")" && pwd)"
-ARGS+=(--hook-dir "$HERE" -- "$@")
+function os_ubuntu() {
+    # Install dependencies for Ubuntu
+    echo "- Installing dependencies for Ubuntu..."
+    sudo apt-get install -y python3 python3-pip moreutils jq gnupg sops git age
+    if $? -ne 0; then
+        echo -e "  ${BOLDRED}Could not install dependencies${ENDCOLOR}"
+        exit 1
+    else
+        echo -e "  ${GREEN}OK.${ENDCOLOR}"
+    fi
+}
 
-if [ -x "$INSTALL_PYTHON" ]; then
-  exec "$INSTALL_PYTHON" -mpre_commit "${ARGS[@]}"
-elif command -v pre-commit >/dev/null; then
-  exec pre-commit "${ARGS[@]}"
+function os_centos() {
+    # Install dependencies for CentOS
+    echo "- Installing dependencies for CentOS..."
+    sudo yum install -y python3 python3-pip moreutils jq gnupg sops git age
+    if $? -ne 0; then
+        echo -e "  ${BOLDRED}Could not install dependencies${ENDCOLOR}"
+        exit 1
+    else
+        echo -e "  ${GREEN}OK.${ENDCOLOR}"
+    fi
+}
+
+function os_macos() {
+    # Install dependencies for macOS
+    echo "- Checking dependencies for macOS..."
+
+    # Make sure homebrew is installed
+    which -s brew || do_install_homebrew
+
+    # Make sure that moreutils is installed
+    which -s ts || brew install moreutils
+
+    # Make sure that python3 is installed
+    which -s python3 || brew install python3
+
+    # Make sure that jq is installed
+    which -s jq || brew install jq
+
+    # Make sure that gnupg is installed
+    which -s gpg || brew install gnupg
+
+    # Make sure that sops is installed
+    which -s sops || brew install sops
+
+    # Make sure that pip3 is installed
+    which -s pip3 || $(command -v python3) -m pip install --upgrade pip
+
+    echo -e "  ${GREEN}OK.${ENDCOLOR}"
+}
+
+# Detect operating system
+detect_os_and_version
+
+# Install dependencies based on $OS
+if [[ "$OS" == "ubuntu" ]]; then
+    os_ubuntu
+elif [[ "$OS" == "centos" ]]; then
+    os_centos
+elif [[ "$OS" == "macOS" ]]; then
+    os_macos
 else
-  echo '`pre-commit` not found.  Did you forget to activate your virtualenv?' 1>&2
-  export EXIT_STATUS=1
+    echo "Unknown OS. Please install dependencies manually."
+    exit 1
 fi
 
-exit $EXIT_STATUS
+# Configure OS executable paths
+do_configure_os_executables
+
+# Install pip3 packages
+do_install_pip3_packages

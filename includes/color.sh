@@ -13,8 +13,6 @@
 #    echo -e "# ${RED}╚══════════════════════════════════════════════════════════════╝${ENDCOLOR}"
 #    echo '#'
 
-echo "Setting up color formatting variables..."
-echo
 # Color formatting variables
 export WHITE='\033[97m'
 export RED='\033[31m'
@@ -30,5 +28,6 @@ export BOLDBLUE='\033[1;34m'
 
 export ENDCOLOR='\033[0m'
 
-echo -e "${BOLDRED}C${BOLDGREEN}o${BOLDYELLOW}l${BOLDBLUE}o${BOLDWHITE}u${BOLDRED}r ${GREEN}f${YELLOW}o${BLUE}r${WHITE}m${RED}a${GREEN}t${YELLOW}t${BLUE}i${WHITE}n${RED}g ${ENDCOLOR}variables configured!"
+echo
+echo -e "- ${BOLDRED}C${BOLDGREEN}o${BOLDYELLOW}l${BOLDBLUE}o${BOLDWHITE}u${BOLDRED}r ${GREEN}f${YELLOW}o${BLUE}r${WHITE}m${RED}a${GREEN}t${YELLOW}t${BLUE}i${WHITE}n${RED}g ${ENDCOLOR}variables configured."
 echo
