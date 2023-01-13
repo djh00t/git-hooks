@@ -5,7 +5,6 @@
 
 # Add dependencies and includes
 source includes/color.sh
-source includes/debug.sh
 source includes/depends.sh
 
 export EXIT_STATUS=0
@@ -15,7 +14,8 @@ if [ ! -r '.k8s_password_hooks' ]; then
 fi
 
 function do_check_age_prv_key() {
-  do_debug # Ensure that age private key exists
+  # Ensure that age private key exists
+  echo "- Checking for age private key..."
 
   # The current user
   USER=$(whoami)
@@ -27,22 +27,44 @@ function do_check_age_prv_key() {
   MACOS_PATH="/Users/$USER/.config/sops/age/keys.txt"
 
   if [ -f "$LINUX_PATH" ]; then
-    echo '#'
-    echo -e "# ${GREEN}Age keys.txt found in $LINUX_PATH...${ENDCOLOR}"
-    echo '#'
+    echo -e "  ${GREEN}OK.${ENDCOLOR}"
+    echo
   elif [ -f "$MACOS_PATH" ]; then
-    echo '#'
-    echo -e "# ${GREEN}Age keys.txt found in $MACOS_PATH...${ENDCOLOR}"
-    echo '#'
+    echo -e "  ${GREEN}OK.${ENDCOLOR}"
+    echo
   else
-    echo '#'
-    echo -e "# ${RED}╔══════════════════════════════════════════════════════════════╗${ENDCOLOR}"
-    echo -e "# ${RED}║          ${BOLDYELLOW} !!! ERROR: Age private key not found !!!           ${ENDCOLOR}${RED}║${ENDCOLOR}"
-    echo -e "# ${RED}╠══════════════════════════════════════════════════════════════╣${ENDCOLOR}"
-    echo -e "# ${RED}║${ENDCOLOR} Please retrieve the age private key from the secrets manager ${ENDCOLOR}${RED}║${ENDCOLOR}"
-    echo -e "# ${RED}║${ENDCOLOR} and save it to ~/.config/sops/age/keys.txt                   ${ENDCOLOR}${RED}║${ENDCOLOR}"
-    echo -e "# ${RED}╚══════════════════════════════════════════════════════════════╝${ENDCOLOR}"
-    echo '#'
+    echo
+    echo -e "  ${RED}╔══════════════════════════════════════════════════════════════╗${ENDCOLOR}"
+    echo -e "  ${RED}║          ${BOLDYELLOW} !!! ERROR: Age private key not found !!!           ${ENDCOLOR}${RED}║${ENDCOLOR}"
+    echo -e "  ${RED}╠══════════════════════════════════════════════════════════════╣${ENDCOLOR}"
+    echo -e "  ${RED}║${ENDCOLOR} Please retrieve the age private key from the secrets manager ${ENDCOLOR}${RED}║${ENDCOLOR}"
+    echo -e "  ${RED}║${ENDCOLOR} and save it to ~/.config/sops/age/keys.txt                   ${ENDCOLOR}${RED}║${ENDCOLOR}"
+    echo -e "  ${RED}╚══════════════════════════════════════════════════════════════╝${ENDCOLOR}"
+    echo
+    sleep 3
+    export EXIT_STATUS=1
+  fi
+
+}
+
+function do_check_age_pub_key() {
+  # Ensure that age public key exists
+  echo "- Checking for age public key..."
+
+  PUB_AGE=".age.pub"
+
+  if [ -f "$PUB_AGE" ]; then
+    echo -e "  ${GREEN}OK.${ENDCOLOR}"
+    echo
+  else
+    echo
+    echo -e "  ${RED}╔══════════════════════════════════════════════════════════════╗${ENDCOLOR}"
+    echo -e "  ${RED}║          ${BOLDYELLOW} !!! ERROR: Age public key not found !!!            ${ENDCOLOR}${RED}║${ENDCOLOR}"
+    echo -e "  ${RED}╠══════════════════════════════════════════════════════════════╣${ENDCOLOR}"
+    echo -e "  ${RED}║${ENDCOLOR} Please retrieve the age public key from the secrets manager  ${ENDCOLOR}${RED}║${ENDCOLOR}"
+    echo -e "  ${RED}║${ENDCOLOR} and save it to .age.pub in the root of your repo.            ${ENDCOLOR}${RED}║${ENDCOLOR}"
+    echo -e "  ${RED}╚══════════════════════════════════════════════════════════════╝${ENDCOLOR}"
+    echo
     sleep 3
     export EXIT_STATUS=1
   fi
@@ -50,9 +72,7 @@ function do_check_age_prv_key() {
 }
 
 function do_get_files_encrypt() {
-  echo '#'
-  echo '# PRE-COMMIT ENCRYPTION CHECK'
-  echo '#'
+  echo "- Pre-commit unencrypted secrets check"
 
   # The directory to search
   SEARCH_DIR="."
@@ -80,44 +100,45 @@ function do_get_files_encrypt() {
       if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && ! grep -q "sops:" "$file" && ! grep -q "encrypted_regex: ^(data|stringData)$" "$file"; then
         # Add the file to the result array
         FILES_ENCRYPT+=("$file")
-        echo "# Adding $file"
+        export FILES_ENCRYPT=${FILES_ENCRYPT[@]}
+        echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $file"
         # Increment the result count
-        FILES_ENCRYPT_COUNT=$((FILES_ENCRYPT_COUNT + 1))
+        export FILES_ENCRYPT_COUNT=$((FILES_ENCRYPT_COUNT + 1))
       fi
     fi
   done
 
-  # Print the result array
-  do_debug "FILES_ENCRYPT: ${FILES_ENCRYPT[@]}"
-
-  # Print the result count
-  do_debug "FILES_ENCRYPT_COUNT: $FILES_ENCRYPT_COUNT"
-
   # Check to see if any files were found
   if [ -z "$FILES_ENCRYPT" ]; then
-    echo "# No files to encrypt"
-    echo '#'
+    echo -e "  ${GREEN}OK.${ENDCOLOR} - No files to encrypt"
+    echo
     export EXIT_STATUS=0
   else
     # Announce the number of files to encrypt
-    echo '#'
-    echo "# There are $FILES_ENCRYPT_COUNT files to encrypt"
-    do_encrypt_files
+    echo
+    if [ "$FILES_ENCRYPT_COUNT" -eq 1 ]; then
+      echo -e "  ${YELLOW}SUMMARY:${ENDCOLOR} There is $FILES_ENCRYPT_COUNT file to encrypt"
+    else
+      echo -e "  ${YELLOW}SUMMARY:${ENDCOLOR} There are $FILES_ENCRYPT_COUNT files to encrypt"
+    fi
   fi
 }
 
 function do_encrypt_files() {
   # Start file encryption
-  echo '#'
-  echo "# Encrypting files..."
-  echo '#'
+  echo
+  if [ "$FILES_ENCRYPT_COUNT" -eq 1 ]; then
+    echo -e "- Encrypting file..."
+  else
+    echo -e "- Encrypting files..."
+  fi
 
   # Import public key
   export KEY_AGE=$(cat .age.pub)
 
   # Iterate over ${FILES_ENCRYPT[@]} and encrypt each file
   for FILE in "${FILES_ENCRYPT[@]}"; do
-    echo "# Encrypting $FILE"
+    echo "  Encrypting $FILE"
 
     # Encrypt the file
     sops --age=$KEY_AGE --encrypt --encrypted-regex '^(data|stringData)$' --in-place $FILE
@@ -127,28 +148,38 @@ function do_encrypt_files() {
 
     # Check if the encryption was successful
     if [[ $? -ne 0 ]]; then
-      echo "Error encrypting $FILE - Exiting"
+      echo "  ${BOLDRED}ERROR:${ENDCOLOR} while encrypting $FILE - Exiting"
       exit 1
+    else
+      # Add encrypted file to next git commit
+      git add -f $FILE
     fi
-    echo '#'
+    echo
   done
-  
-  echo "# Encryption complete"
+  echo -e "  ${GREEN}OK.${ENDCOLOR}"
+
+  # Commit the encrypted files
+  git commit -m "Encrypted files: ${FILES_ENCRYPT[@]}"
+
+  EXIT_STATUS=0
 }
 
 # Ensure that age private key is configured
 if [ $EXIT_STATUS = 0 ]; then
   do_check_age_prv_key
+  do_check_age_pub_key
 fi
 
-# Get list of files to encrypt, if they exist encrypt them
+# Get list of files to encrypt
 if [ $EXIT_STATUS = 0 ]; then
   do_get_files_encrypt
 fi
-echo '#'
-echo "# Remove .vault_password_hooks from .gitgnore to prevent transparent encryption"
-echo '#'
-echo
+
+# Encrypt files
+# If $FILES_ENCRYPT_COUNT is greater than 0 run do_encrypt_files
+if [ $EXIT_STATUS = 0 ] && [ $FILES_ENCRYPT_COUNT -gt 0 ]; then
+  do_encrypt_files
+fi
 
 ###
 ### Run pre-commit hooks
@@ -156,7 +187,6 @@ echo
 INSTALL_PYTHON=$(which python3)
 ARGS=(hook-impl --config=.pre-commit-config.yaml --hook-type=pre-commit)
 pre-commit "${ARGS[@]}"
-
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ARGS+=(--hook-dir "$HERE" -- "$@")
