@@ -1,0 +1,155 @@
+#!/bin/bash
+###
+### Post-commit hook that decrypts files containing age encrypted kubernetes secrets
+### File should be .git/hooks/post-commit and executable
+
+# Add dependencies and includes
+source includes/color.sh
+source includes/debug.sh
+source includes/depends.sh
+
+export EXIT_STATUS=0
+
+if [ ! -r '.k8s_password_hooks' ]; then
+  export EXIT_STATUS=0
+fi
+
+function do_check_age_prv_key() {
+  do_debug # Ensure that age private key exists
+
+  # The current user
+  USER=$(whoami)
+
+  # The path for linux
+  LINUX_PATH="~/.config/sops/age/keys.txt"
+
+  # The path for MacOS
+  MACOS_PATH="/Users/$USER/.config/sops/age/keys.txt"
+
+  if [ -f "$LINUX_PATH" ]; then
+    echo '#'
+    echo -e "# ${GREEN} Age keys.txt found in $LINUX_PATH...${ENDCOLOR}"
+    echo '#'
+  elif [ -f "$MACOS_PATH" ]; then
+    echo '#'
+    echo -e "# ${GREEN}Age keys.txt found in $MACOS_PATH...${ENDCOLOR}"
+    echo '#'
+  else
+    echo '#'
+    echo -e "# ${RED}╔══════════════════════════════════════════════════════════════╗${ENDCOLOR}"
+    echo -e "# ${RED}║          ${BOLDYELLOW} !!! ERROR: Age private key not found !!!           ${ENDCOLOR}${RED}║${ENDCOLOR}"
+    echo -e "# ${RED}╠══════════════════════════════════════════════════════════════╣${ENDCOLOR}"
+    echo -e "# ${RED}║${ENDCOLOR} Please retrieve the age private key from the secrets manager ${ENDCOLOR}${RED}║${ENDCOLOR}"
+    echo -e "# ${RED}║${ENDCOLOR} and save it to ~/.config/sops/age/keys.txt                   ${ENDCOLOR}${RED}║${ENDCOLOR}"
+    echo -e "# ${RED}╚══════════════════════════════════════════════════════════════╝${ENDCOLOR}"
+    echo '#'
+    sleep 3
+    export EXIT_STATUS=1
+  fi
+
+}
+
+function do_get_files_decrypt() {
+  echo '#'
+  echo '# POST-COMMIT DECRYPTION CHECK'
+  echo '#'
+
+  # The directory to search
+  SEARCH_DIR="."
+
+  # The array to store the result files
+  FILES_DECRYPT=()
+
+  # The variable to store the number of result files
+  FILES_DECRYPT_COUNT=0
+
+  # Check if the ignore file exists
+  if [ -f "$SEARCH_DIR/.k8s_password_hooks_ignore" ]; then
+    # Read the ignore file and create an array of ignored files
+    IGNORE_FILES=($(cat "$SEARCH_DIR/.k8s_password_hooks_ignore"))
+  else
+    # Create an empty array of ignored files
+    IGNORE_FILES=()
+  fi
+
+  # Find all yaml files in the search directory
+  for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
+    # Check if the file is in the ignore list
+    if [[ ! " ${IGNORE_FILES[@]} " =~ " ${file} " ]]; then
+      # Check if the file contains "sops:" and "encrypted_regex: ^(data|stringData)$" and "kind: Secret" and "stringData:""
+      if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && grep -q "sops:" "$file" && grep -q "encrypted_regex:" "$file"; then
+        # Add the file to the result array
+        FILES_DECRYPT+=("$file")
+        echo "# Adding $file"
+        # Increment the result count
+        FILES_DECRYPT_COUNT=$((FILES_DECRYPT_COUNT + 1))
+      fi
+    fi
+  done
+
+  # Print the result array
+  do_debug "FILES_DECRYPT: ${FILES_DECRYPT[@]}"
+
+  # Print the result count
+  do_debug "FILES_DECRYPT_COUNT: $FILES_DECRYPT_COUNT"
+
+  # Check to see if any files were found
+  if [ -z "$FILES_DECRYPT" ]; then
+    echo "# No files to decrypt"
+    echo '#'
+    export EXIT_STATUS=0
+  else
+    # Announce the number of files to decrypt
+    echo '#'
+    echo "# There are $FILES_DECRYPT_COUNT files to decrypt"
+    do_decrypt_files
+  fi
+}
+
+
+function do_decrypt_files() {
+  # Start file decryption
+  echo '#'
+  echo "# Decrypting files..."
+  echo '#'
+
+  # Import public key
+  export KEY_AGE=$(cat .age.pub)
+
+  # Iterate over ${FILES_DECRYPT[@]} and decrypt each file
+  for FILE in "${FILES_DECRYPT[@]}"; do
+    echo "# Decrypting $FILE"
+
+    # Decrypt file
+    sops --decrypt --encrypted-regex '^(data|stringData)$' --in-place $FILE
+
+    # Add decrypted file to next git commit to reduce IDE weirdness
+    git add $FILE
+
+    # Check if decryption was successful
+    if [[ $? -ne 0 ]]; then
+      echo "Error decrypting $FILE - Exiting"
+      export EXIT_STATUS=1
+    fi
+    echo '#'
+  done
+  
+  echo "# Decryption complete"
+}
+
+# Ensure that age private key is configured
+if [ $EXIT_STATUS = 0 ] ; then
+  do_check_age_prv_key
+fi
+
+# Get list of files to decrypt, if they exist decrypt them
+if [ $EXIT_STATUS = 0 ] ; then
+  do_get_files_decrypt
+  git add 
+fi
+echo '#'
+echo "# Remove .vault_password_hooks from .gitgnore to prevent transparent decryption"
+echo '#'
+echo
+
+exit $EXIT_STATUS
