@@ -6,6 +6,9 @@ PR's and feature requests welcomed.
 ## Installer
 The installer is written for and intended to run on both MacOS and Linux.
 
+To install run:
+``` curl -s https://raw.githubusercontent.com/djh00t/git-hooks/main/install.sh | bash```
+
 The installer must be run from the root of a git repo and will install a git submodule into  includes/git-hooks in the root of your repo. To update the submodule us the following commands:
   - git submodule update --init --recursive
   - git submodule update --remote
