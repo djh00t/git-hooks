@@ -28,6 +28,32 @@ export BOLDBLUE='\033[1;34m'
 
 export ENDCOLOR='\033[0m'
 
+
+function do_pretty_processing(){
+# Pretty processing function
+  CMD=$1
+
+  # Display pretty processing message
+    echo -en "  ${YELLOW}PROCESSING:${ENDCOLOR} ${FILE[0]}"
+    sleep 0.1
+    echo -n "."
+    sleep 0.1
+    echo -ne "."
+    sleep 0.1
+    echo -ne "."
+    sleep 0.1
+    echo -ne "\t"
+    sleep 0.1
+    $CMD
+    # Check if the command was successful
+    if [[ $? -ne 0 ]]; then
+      echo -ne "  ${BOLDRED}ERROR:${ENDCOLOR} while processing - Exiting\n"
+      exit 1
+    else
+      echo -ne "  ${GREEN}OK.${ENDCOLOR}\n"
+    fi
+}
+
 echo
 echo -e "- ${BOLDRED}C${BOLDGREEN}o${BOLDYELLOW}l${BOLDBLUE}o${BOLDWHITE}u${BOLDRED}r ${GREEN}f${YELLOW}o${BLUE}r${WHITE}m${RED}a${GREEN}t${YELLOW}t${BLUE}i${WHITE}n${RED}g ${ENDCOLOR}variables configured."
 echo
