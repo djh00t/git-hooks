@@ -25,9 +25,9 @@ if [ $EXIT_STATUS = 0 ] ; then
   do_get_files_decrypt
   git add -A
 fi
-echo '#'
-echo "# Remove .vault_password_hooks from .gitgnore to prevent transparent decryption"
-echo '#'
+echo 
+echo " Remove .vault_password_hooks from .gitgnore to prevent transparent decryption"
+echo 
 echo
 
 exit $EXIT_STATUS

@@ -66,7 +66,7 @@ function do_check_age_pub_key() {
 }
 
 # Ensure that age private and public key is configured
-if [ $EXIT_STATUS = 0 ]; then
+if [ !-z $EXIT_STATUS = 0 ]; then
   do_check_age_prv_key
   do_check_age_pub_key
 fi

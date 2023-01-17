@@ -77,9 +77,7 @@ function do_encrypt_files() {
 }
 
 function do_get_files_decrypt() {
-  echo '#'
-  echo '# POST-COMMIT DECRYPTION CHECK'
-  echo '#'
+  echo "- Post-commit encrypted secrets check:"
 
   # The directory to search
   SEARCH_DIR="."
@@ -107,7 +105,7 @@ function do_get_files_decrypt() {
       if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && grep -q "sops:" "$file" && grep -q "encrypted_regex:" "$file"; then
         # Add the file to the result array
         FILES_DECRYPT+=("$file")
-        echo "# Adding $file"
+        echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $file"
         # Increment the result count
         FILES_DECRYPT_COUNT=$((FILES_DECRYPT_COUNT + 1))
       fi
@@ -117,49 +115,41 @@ function do_get_files_decrypt() {
   # Print the result array
   # echo "FILES_DECRYPT: ${FILES_DECRYPT[@]}"
 
-  # Print the result count
-  echo "FILES_DECRYPT_COUNT: $FILES_DECRYPT_COUNT"
-
   # Check to see if any files were found
   if [ -z "$FILES_DECRYPT" ]; then
-    echo "# No files to decrypt"
-    echo '#'
+    echo -e "  ${GREEN}OK.${ENDCOLOR} - No files to decrypt"
     export EXIT_STATUS=0
   else
     # Announce the number of files to decrypt
-    echo '#'
-    echo "# There are $FILES_DECRYPT_COUNT files to decrypt"
-    do_decrypt_files
+    if [ "$FILES_DECRYPT_COUNT" -eq 1 ]; then
+      echo -e "  ${YELLOW}SUMMARY:${ENDCOLOR} There is $FILES_ENCRYPT_COUNT file to decrypt"
+    else
+      echo -e "  ${YELLOW}SUMMARY:${ENDCOLOR} There are $FILES_ENCRYPT_COUNT files to decrypt"
+    fi
+    export EXIT_STATUS=0
   fi
 }
 
 
 function do_decrypt_files() {
-  # Start file decryption
-  echo '#'
-  echo "# Decrypting files..."
-  echo '#'
-
-  # Import public key
-  export KEY_AGE=$(cat .age.pub)
+  echo
+  if [ "$FILES_DECRYPT_COUNT" -eq 1 ]; then
+    echo -e "- Decrypting file:"
+  else
+    echo -e "- Decrypting files:"
+  fi
 
   # Iterate over ${FILES_DECRYPT[@]} and decrypt each file
   for FILE in "${FILES_DECRYPT[@]}"; do
-    echo "# Decrypting $FILE"
-
-    # Decrypt file
-    sops --decrypt --encrypted-regex '^(data|stringData)$' --in-place $FILE
-
-    # Add decrypted file to next git commit to reduce IDE weirdness
-    git add $FILE
-
-    # Check if decryption was successful
-    if [[ $? -ne 0 ]]; then
-      echo "Error decrypting $FILE - Exiting"
-      export EXIT_STATUS=1
-    fi
-    echo '#'
+    do_pretty_processing "sops --decrypt --encrypted-regex '^(data|stringData)$' --in-place $FILE"
+    #git add -f $FILE
   done
+
+  # Commit the decrypted files
+  #git commit -m "Decrypted files: ${FILES_DECRYPT[@]}"
+
+  EXIT_STATUS=0
   
-  echo "# Decryption complete"
+  echo
+  echo "- Decryption complete."
 }
