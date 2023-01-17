@@ -75,3 +75,91 @@ function do_encrypt_files() {
 
   EXIT_STATUS=0
 }
+
+function do_get_files_decrypt() {
+  echo '#'
+  echo '# POST-COMMIT DECRYPTION CHECK'
+  echo '#'
+
+  # The directory to search
+  SEARCH_DIR="."
+
+  # The array to store the result files
+  FILES_DECRYPT=()
+
+  # The variable to store the number of result files
+  FILES_DECRYPT_COUNT=0
+
+  # Check if the ignore file exists
+  if [ -f "$SEARCH_DIR/.k8s_password_hooks_ignore" ]; then
+    # Read the ignore file and create an array of ignored files
+    IGNORE_FILES=($(cat "$SEARCH_DIR/.k8s_password_hooks_ignore"))
+  else
+    # Create an empty array of ignored files
+    IGNORE_FILES=()
+  fi
+
+  # Find all yaml files in the search directory
+  for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
+    # Check if the file is in the ignore list
+    if [[ ! " ${IGNORE_FILES[@]} " =~ " ${file} " ]]; then
+      # Check if the file contains "sops:" and "encrypted_regex: ^(data|stringData)$" and "kind: Secret" and "stringData:""
+      if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && grep -q "sops:" "$file" && grep -q "encrypted_regex:" "$file"; then
+        # Add the file to the result array
+        FILES_DECRYPT+=("$file")
+        echo "# Adding $file"
+        # Increment the result count
+        FILES_DECRYPT_COUNT=$((FILES_DECRYPT_COUNT + 1))
+      fi
+    fi
+  done
+
+  # Print the result array
+  # echo "FILES_DECRYPT: ${FILES_DECRYPT[@]}"
+
+  # Print the result count
+  echo "FILES_DECRYPT_COUNT: $FILES_DECRYPT_COUNT"
+
+  # Check to see if any files were found
+  if [ -z "$FILES_DECRYPT" ]; then
+    echo "# No files to decrypt"
+    echo '#'
+    export EXIT_STATUS=0
+  else
+    # Announce the number of files to decrypt
+    echo '#'
+    echo "# There are $FILES_DECRYPT_COUNT files to decrypt"
+    do_decrypt_files
+  fi
+}
+
+
+function do_decrypt_files() {
+  # Start file decryption
+  echo '#'
+  echo "# Decrypting files..."
+  echo '#'
+
+  # Import public key
+  export KEY_AGE=$(cat .age.pub)
+
+  # Iterate over ${FILES_DECRYPT[@]} and decrypt each file
+  for FILE in "${FILES_DECRYPT[@]}"; do
+    echo "# Decrypting $FILE"
+
+    # Decrypt file
+    sops --decrypt --encrypted-regex '^(data|stringData)$' --in-place $FILE
+
+    # Add decrypted file to next git commit to reduce IDE weirdness
+    git add $FILE
+
+    # Check if decryption was successful
+    if [[ $? -ne 0 ]]; then
+      echo "Error decrypting $FILE - Exiting"
+      export EXIT_STATUS=1
+    fi
+    echo '#'
+  done
+  
+  echo "# Decryption complete"
+}
