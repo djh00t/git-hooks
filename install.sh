@@ -27,6 +27,7 @@ fi
 cd includes
 echo "Adding git-hooks as a submodule..."
 git submodule add git@github.com:djh00t/git-hooks.git
+cd git-hooks
 git add .gitmodules git-hooks
 git commit -m "added git-hooks submodule"
 
