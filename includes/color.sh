@@ -54,6 +54,32 @@ function do_pretty_processing(){
     fi
 }
 
+function do_pretty_waiting(){
+# Pretty processing function
+  CMD=$1
+  PROC=$2
+
+  # Announce what we are waiting for
+  echo -en "  ${WHITE}WAITING:${ENDCOLOR} For $PROC to be ready"
+
+  # Loop until the command returns True True
+	while [ "$($CMD)" != "True True" ]; do
+    # Display pretty processing message
+      sleep 0.2
+      echo -ne "."
+  done
+      # Check if the command was successful
+      if [[ $? -ne 0 ]]; then
+        echo -ne "  ${BOLDRED}ERROR:${ENDCOLOR} while waiting for $CMD - Exiting\n"
+        exit 1
+      else
+        echo -ne "  ${GREEN}OK.${ENDCOLOR}\n"
+        echo
+        echo -ne "  ${GREEN}SUCCESS:${ENDCOLOR} $CMD is ready"
+        echo
+      fi
+}
+
 echo
 echo -e "- ${BOLDRED}C${BOLDGREEN}o${BOLDYELLOW}l${BOLDBLUE}o${BOLDWHITE}u${BOLDRED}r ${GREEN}f${YELLOW}o${BLUE}r${WHITE}m${RED}a${GREEN}t${YELLOW}t${BLUE}i${WHITE}n${RED}g ${ENDCOLOR}variables configured."
 echo
