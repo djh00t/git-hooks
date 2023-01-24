@@ -1,6 +1,6 @@
 #!/bin/bash
 ###
-### Post-commit hook that encrypts files containing age encrypted kubernetes secrets
+### Pre-commit hook that encrypts files containing age encrypted kubernetes secrets
 ### File should be .git/hooks/post-commit and executable
 
 # Add dependencies and includes
