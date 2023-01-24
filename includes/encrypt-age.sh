@@ -24,12 +24,12 @@ function do_get_files_encrypt() {
     IGNORE_FILES=()
   fi
 
-  # Find all candidate files in the search directory
-  for file in $(find "$SEARCH_DIR" -path "*/.*" -prune -o -type f ! -name "*.md" -print); do
+  # Find all yaml files in the search directory
+  for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
     # Check if the file is in the ignore list
     if [[ ! " ${IGNORE_FILES[@]} " =~ " ${file} " ]]; then
-      # Check if file contains common secret field names but isn't already encrypted
-      if grep -Evq 'sops:|encrypted_regex:' "${file}" | grep -Eiq "Kind: Secret|stringData|secret_key|secret|key|pass(word)?|token" "${file}"; then
+      # Check if the file contains "kind: Secret" and "stringData:" but does not contain "sops:" and "encrypted_regex: ^(data|stringData)$"
+      if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && ! grep -q "sops:" "$file" && ! grep -q "encrypted_regex: ^(data|stringData)$" "$file"; then
         # Add the file to the result array
         FILES_ENCRYPT+=("$file")
         echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $file"
