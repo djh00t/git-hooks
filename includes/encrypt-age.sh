@@ -25,7 +25,7 @@ function do_get_files_encrypt() {
   fi
 
   # Find all YAML files with potential secrets in them
-  FILES_ENCRYPT=($(find $SEARCH_DIR \( -name "*.yml" -o -name "*.yaml" \) -exec grep -l "stringData:\|data:" {} \;| grep -E -v 'sops:|encrypted_regex: ^(data|stringData)$'))
+  FILES_ENCRYPT=($(find $SEARCH_DIR \( -name "*.yml" -o -name "*.yaml" \) -exec grep -l -E '^(data:|stringData:)$' {} \;| xargs grep -l -E -v 'sops:|encrypted_regex: ^(data|stringData)$'))
   FILES_ENCRYPT_COUNT=$(echo "${#FILES_ENCRYPT[@]}")
 
   # List the files to encrypt
