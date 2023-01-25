@@ -56,7 +56,7 @@ function do_get_files_encrypt() {
   fi
 
   # Get candidate files to encrypt
-  export FILES_CAND=($(find $SEARCH_DIR \( -name "*.yml" -o -name "*.yaml" \) -exec grep -l -E '^(data:|stringData:)$' {} \;| xargs grep -lEv '(^[\s-[\r\n]].*config\.yaml:)'))
+  export FILES_CAND=($(find $SEARCH_DIR \( -name "*.yml" -o -name "*.yaml" \) -exec grep -lE '^(data:|stringData:)$' {} \; | xargs grep -EL '((config|values)\.(yml|yaml):)'))
   echo -e "        There are ${#FILES_CAND} candidate files"
 
   # Remove ${FILES_IGNORE[@]} from ${FILES_CAND[@]}
