@@ -75,8 +75,10 @@ function do_get_files_encrypt() {
     fi
 
   done
+
+
   if [ ${#FILES_ENCRYPT[@]} -ne 0 ]; then
-    echo -e "        There are ${#FILES_ENCRYPT} files to encrypt"
+    echo -e "        There are ${#FILES_ENCRYPT[@]} files to encrypt"
   fi
   echo
   # List the files to ignore
