@@ -4,8 +4,8 @@
 ###
 
 # Import public key
-export KEY_AGE=$(cat .age.pub)
-export KEY_AGE_PRV=$(cat ~/.config/sops/age/keys.txt)
+export KEY_AGE=$(grep -v '^#' .age.pub)
+export KEY_AGE_PRV=$(grep -v '^#' ~/.config/sops/age/keys.txt)
 
 function do_check_age_prv_key() {
   # Ensure that age private key exists
