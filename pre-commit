@@ -25,9 +25,9 @@ fi
 
 # Encrypt files
 # If $FILES_ENCRYPT_COUNT is greater than 0 run do_encrypt_files
-#if [ $EXIT_STATUS = 0 ] && [ $FILES_ENCRYPT_COUNT -gt 0 ]; then
+if [ ${#FILES_ENCRYPT[@]} -gt 0 ]; then
   do_encrypt_files
-#fi
+fi
 
 ###
 ### Run pre-commit hooks

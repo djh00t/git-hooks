@@ -81,6 +81,7 @@ function do_get_files_encrypt() {
     echo -e "        There are ${#FILES_ENCRYPT[@]} files to encrypt"
   fi
   echo
+  
   # List the files to ignore
   if [ ${#FILES_IGNORE[@]} -ne 0 ]; then
     for FILE in "${FILES_IGNORE[@]}"; do
