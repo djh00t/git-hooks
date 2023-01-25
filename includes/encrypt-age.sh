@@ -5,24 +5,24 @@
 
 # Find files that are already encrypted
 function do_find_pre_enc_files() {
-    # Find files that are already encrypted and add them to $FILES_IGNORE
-    FILES_ENCRYPTED_COUNT=0
-    for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
-      if grep -q -E '(^kind: Secret$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)' "$file"; then
-        FILES_IGNORE+=("$file")
-        # Add 1 to the count of ecncrypted files
-        FILES_ENCRYPTED_COUNT=$((FILES_ENCRYPTED_COUNT + 1))
-      fi
-    done
-
-    # Announce the number of encrypted files found
-    if [ "$FILES_ENCRYPTED_COUNT" -eq 0 ]; then
-      NOFILES=0
-    elif [ "$FILES_ENCRYPTED_COUNT" -eq 1 ]; then
-      echo -e "        There is $FILES_ENCRYPTED_COUNT encrypted file in your repo, adding it to the ignore list."
-    else
-      echo -e "        There are $FILES_ENCRYPTED_COUNT encrypted files in your repo, adding them to the ignore list."
+  # Find files that are already encrypted and add them to $FILES_IGNORE
+  FILES_ENCRYPTED_COUNT=0
+  for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
+    if grep -q -E '(^kind: Secret$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)' "$file"; then
+      FILES_IGNORE+=("$file")
+      # Add 1 to the count of ecncrypted files
+      FILES_ENCRYPTED_COUNT=$((FILES_ENCRYPTED_COUNT + 1))
     fi
+  done
+
+  # Announce the number of encrypted files found
+  if [ "$FILES_ENCRYPTED_COUNT" -eq 0 ]; then
+    NOFILES=0
+  elif [ "$FILES_ENCRYPTED_COUNT" -eq 1 ]; then
+    echo -e "        There is $FILES_ENCRYPTED_COUNT encrypted file in your repo, adding it to the ignore list."
+  else
+    echo -e "        There are $FILES_ENCRYPTED_COUNT encrypted files in your repo, adding them to the ignore list."
+  fi
 }
 
 function do_get_files_encrypt() {
@@ -56,18 +56,28 @@ function do_get_files_encrypt() {
 
   # Get candidate files to encrypt
   export FILES_CAND=($(find $SEARCH_DIR \( -name "*.yml" -o -name "*.yaml" \) -exec grep -l -E '^(data:|stringData:)$' {} \;))
-    echo -e "        There are ${#FILES_CAND} candidate files"
+  echo -e "        There are ${#FILES_CAND} candidate files"
 
-  # Remove ignored files from the candidate files and store in $FILES_ENCRYPT
-  for IGNORE_FILE in "${FILES_IGNORE[@]}"; do
-    for CAND_FILE in "${FILES_CAND[@]}"; do
-      if [ "$IGNORE_FILE" = "$CAND_FILE" ]; then
-        export FILES_ENCRYPT=("${FILES_CAND[@]/$CAND_FILE/}")
+  # Remove ${FILES_IGNORE[@]} from ${FILES_CAND[@]}
+  for CAND_FILE in "${FILES_CAND[@]}"; do
+    IGNORE=0
+
+    for IGNORE_FILE in "${FILES_IGNORE[@]}"; do
+      if [ "${CAND_FILE}" = "${IGNORE_FILE}" ]; then
+        IGNORE=1
       fi
     done
+
+    # only add to encrypted array if wasnt ignored
+    if [ "${IGNORE}" -eq 0 ]; then
+      FILES_ENCRYPT+=("${CAND_FILE}")
+    fi
+
   done
+  if [ ${#FILES_ENCRYPT[@]} -ne 0 ]; then
     echo -e "        There are ${#FILES_ENCRYPT} files to encrypt"
-    echo
+  fi
+  echo
   # List the files to ignore
   if [ ${#FILES_IGNORE[@]} -ne 0 ]; then
     for FILE in "${FILES_IGNORE[@]}"; do
