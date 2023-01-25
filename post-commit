@@ -11,8 +11,16 @@ source includes/keys.sh
 
 export EXIT_STATUS=0
 
+# Check to see if password hooks file is defined
+echo "- Checking for .k8s_password_hooks..."
 if [ ! -r '.k8s_password_hooks' ]; then
-  export EXIT_STATUS=0
+  export K8S_HOOKS=0
+  echo -e "  ${YELLOW}INFO:${ENDCOLOR} .k8s_password_hooks is not defined."
+  echo
+else
+  export K8S_HOOKS=1
+  echo -e "  ${GREEN}OK.${ENDCOLOR}"
+  echo
 fi
 
 # Ensure that age private key is configured
