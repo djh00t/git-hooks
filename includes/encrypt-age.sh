@@ -28,8 +28,8 @@ function do_get_files_encrypt() {
   for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
     # Check if the file is in the ignore list
     if [[ ! " ${IGNORE_FILES[@]} " =~ " ${file} " ]]; then
-      # Check if the file contains "kind: Secret" and "stringData:" but does not contain "sops:" and "encrypted_regex: ^(data|stringData)$"
-      if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && ! grep -q "sops:" "$file" && ! grep -q "encrypted_regex: ^(data|stringData)$" "$file"; then
+      # Check if the file contains "kind: Secret" and "stringData:" or "data:" but does not contain "sops:" and "encrypted_regex: ^(data|stringData)$"
+      if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && grep -q "data:" "$file" && ! grep -q "sops:" "$file" && ! grep -q "encrypted_regex: ^(data|stringData)$" "$file"; then
         # Add the file to the result array
         FILES_ENCRYPT+=("$file")
         echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $file"
@@ -102,7 +102,7 @@ function do_get_files_decrypt() {
     # Check if the file is in the ignore list
     if [[ ! " ${IGNORE_FILES[@]} " =~ " ${file} " ]]; then
       # Check if the file contains "sops:" and "encrypted_regex: ^(data|stringData)$" and "kind: Secret" and "stringData:""
-      if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && grep -q "sops:" "$file" && grep -q "encrypted_regex:" "$file"; then
+      if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && grep -q "data:" "$file" && grep -q "sops:" "$file" && grep -q "encrypted_regex:" "$file"; then
         # Add the file to the result array
         FILES_DECRYPT+=("$file")
         echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $file"
