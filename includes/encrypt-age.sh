@@ -110,6 +110,7 @@ function do_get_files_decrypt() {
         FILES_DECRYPT_COUNT=$((FILES_DECRYPT_COUNT + 1))
       fi
     fi
+    export EXIT_STATUS=0
   done
 
   # Print the result array
