@@ -9,7 +9,7 @@ function do_find_pre_enc_files() {
   FILES_ENCRYPTED_COUNT=0
   for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
     if grep -q -E '(^kind: (Secret|ConfigMap)$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)' "$file"; then
-      FILES_IGNORE+=("$file")
+      export FILES_IGNORE+=("$file")
       # Add 1 to the count of ecncrypted files
       FILES_ENCRYPTED_COUNT=$((FILES_ENCRYPTED_COUNT + 1))
     fi
@@ -17,7 +17,7 @@ function do_find_pre_enc_files() {
 
   # Announce the number of encrypted files found
   if [ "$FILES_ENCRYPTED_COUNT" -eq 0 ]; then
-    NOFILES=0
+    echo -e "        There are $FILES_ENCRYPTED_COUNT encrypted files in your repo."
   elif [ "$FILES_ENCRYPTED_COUNT" -eq 1 ]; then
     echo -e "        There is $FILES_ENCRYPTED_COUNT encrypted file in your repo, adding it to the ignore list."
   else
@@ -47,6 +47,7 @@ function do_get_files_encrypt() {
     echo -e "  ${YELLOW}INFO:${ENDCOLOR} Found $SEARCH_DIR/.k8s_password_hooks_ignore"
     echo -e "        There are ${#FILES_IGNORE[@]} files in your ignore file."
     do_find_pre_enc_files
+    echo -e "        There are ${#FILES_IGNORE[@]} files being ignored in total."
   else
     # Create an empty array of ignored files
     FILES_IGNORE=()
