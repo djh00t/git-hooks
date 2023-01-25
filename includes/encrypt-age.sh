@@ -57,7 +57,7 @@ function do_get_files_encrypt() {
   # Get candidate files to encrypt
   export FILES_CAND=($(find $SEARCH_DIR \( -name "*.yml" -o -name "*.yaml" \) -exec grep -l -E '^(data:|stringData:)$' {} \;))
     echo -e "        There are ${#FILES_CAND} candidate files"
-    echo
+
   # Remove ignored files from the candidate files and store in $FILES_ENCRYPT
   for IGNORE_FILE in "${FILES_IGNORE[@]}"; do
     for CAND_FILE in "${FILES_CAND[@]}"; do
