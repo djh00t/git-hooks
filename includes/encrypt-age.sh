@@ -8,7 +8,7 @@ function do_find_pre_enc_files() {
   # Find files that are already encrypted and add them to $FILES_IGNORE
   FILES_ENCRYPTED_COUNT=0
   for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
-    if grep -q -E '(^kind: (Secret|ConfigMap)$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)' "$file"; then
+    if grep -q -E '(^kind: (Secret|ConfigMap)$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)' "$file" && grep -q -E '(^  config.yaml:$)'; then
       export FILES_IGNORE+=("$file")
       # Add 1 to the count of ecncrypted files
       FILES_ENCRYPTED_COUNT=$((FILES_ENCRYPTED_COUNT + 1))
