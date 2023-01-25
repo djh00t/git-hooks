@@ -24,20 +24,16 @@ function do_get_files_encrypt() {
     IGNORE_FILES=()
   fi
 
-  # Find all yaml files in the search directory
-  for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
-    # Check if the file is in the ignore list
-    if [[ ! " ${IGNORE_FILES[@]} " =~ " ${file} " ]]; then
-      # Check if the file contains "kind: Secret" and "stringData:" or "data:" but does not contain "sops:" and "encrypted_regex: ^(data|stringData)$"
-      if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && grep -q "data:" "$file" && ! grep -q "sops:" "$file" && ! grep -q "encrypted_regex: ^(data|stringData)$" "$file"; then
-        # Add the file to the result array
-        FILES_ENCRYPT+=("$file")
-        echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $file"
-        # Increment the result count
-        export FILES_ENCRYPT_COUNT=$((FILES_ENCRYPT_COUNT + 1))
-      fi
-    fi
-  done
+  # Find all YAML files with potential secrets in them
+  FILES_ENCRYPT=($(find $SEARCH_DIR \( -name "*.yml" -o -name "*.yaml" \) -exec grep -l "stringData:\|data:" {} \;| grep -E -v 'sops:|encrypted_regex: ^(data|stringData)$'))
+  FILES_ENCRYPT_COUNT=$(echo "${#FILES_ENCRYPT[@]}")
+
+  # List the files to encrypt
+  if [ ${#FILES_ENCRYPT[@]} -ne 0 ]; then
+    for FILE in "${FILES_ENCRYPT[@]}"; do
+      echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $FILE"
+    done
+  fi
 
   # Check to see if any files were found
   if [ -z "$FILES_ENCRYPT" ]; then
