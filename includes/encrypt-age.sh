@@ -65,31 +65,14 @@ function do_get_files_encrypt() {
       fi
     done
   done
-
-  # Count the number of files to encrypt
-  FILES_ENCRYPT_COUNT=$(echo "${#FILES_ENCRYPT[@]}")
+    echo -e "        There are ${#FILES_ENCRYPT} files to encrypt"
 
   # List the files to encrypt
   if [ ${#FILES_ENCRYPT[@]} -ne 0 ]; then
     for FILE in "${FILES_ENCRYPT[@]}"; do
+      echo
       echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $FILE"
     done
-  fi
-
-  # Check to see if any files were found
-  if [ -z "$FILES_ENCRYPT" ]; then
-    echo
-    echo -e "  ${GREEN}OK.${ENDCOLOR} - No files to encrypt"
-    echo
-    export EXIT_STATUS=0
-  else
-    # Announce the number of files to encrypt
-    if [ "$FILES_ENCRYPT_COUNT" -eq 1 ]; then
-      echo -e "  ${YELLOW}SUMMARY:${ENDCOLOR} There is $FILES_ENCRYPT_COUNT file to encrypt"
-    else
-      echo -e "  ${YELLOW}SUMMARY:${ENDCOLOR} There are $FILES_ENCRYPT_COUNT files to encrypt"
-    fi
-    export EXIT_STATUS=0
   fi
 }
 
