@@ -70,6 +70,7 @@ function do_check_age_pub_key() {
 
 # Ensure that age private and public key is configured
 if [ $EXIT_STATUS -eq 1 ]; then
+  echo "EXIT_STATUS is 1. Skipping age key checks and quitting."
   exit 1
 else
   do_check_age_prv_key
