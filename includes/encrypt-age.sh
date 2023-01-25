@@ -3,6 +3,28 @@
 ### Age Encrypt/decrypt functions
 ###
 
+# Find files that are already encrypted
+function do_find_pre_enc_files() {
+    # Find files that are already encrypted and add them to $FILES_IGNORE
+    FILES_ENCRYPTED_COUNT=0
+    for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
+      if grep -q -E '(^kind: Secret$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)' "$file"; then
+        FILES_IGNORE+=("$file")
+        # Add 1 to the count of ecncrypted files
+        FILES_ENCRYPTED_COUNT=$((FILES_ENCRYPTED_COUNT + 1))
+      fi
+    done
+
+    # Announce the number of encrypted files found
+    if [ "$FILES_ENCRYPTED_COUNT" -eq 0 ]; then
+      NOFILES=0
+    elif [ "$FILES_ENCRYPTED_COUNT" -eq 1 ]; then
+      echo -e "        There is $FILES_ENCRYPTED_COUNT encrypted file in your repo, adding it to the ignore list."
+    else
+      echo -e "        There are $FILES_ENCRYPTED_COUNT encrypted files in your repo, adding them to the ignore list."
+    fi
+}
+
 function do_get_files_encrypt() {
   echo "- Pre-commit unencrypted secrets check:"
 
@@ -23,26 +45,13 @@ function do_get_files_encrypt() {
     # Read the ignore file and create an array of ignored files
     FILES_IGNORE=($(cat "$SEARCH_DIR/.k8s_password_hooks_ignore"))
     echo -e "  ${YELLOW}INFO:${ENDCOLOR} Found $SEARCH_DIR/.k8s_password_hooks_ignore"
-    echo -e "       There are ${#FILES_IGNORE[@]} in your ignore file."
-    # Find files that are already encrypted and add them to $FILES_IGNORE
-    FILES_ENCRYPTED_COUNT=0
-    for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
-      if grep -q -E '(^kind: Secret$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)';then
-        FILES_IGNORE+=("$file")
-        # Add 1 to the count of ecncrypted files
-        FILES_ENCRYPTED_COUNT=$((FILES_ENCRYPTED_COUNT+1))
-      fi
-    done
-    echo -e "       There are $FILES_ENCRYPTED_COUNT encrypted files in your repo, adding them to the ignore list."
+    echo -e "        There are ${#FILES_IGNORE[@]} files in your ignore file."
+    do_find_pre_enc_files
   else
     # Create an empty array of ignored files
     FILES_IGNORE=()
     # Find files that are already encrypted and add them to $FILES_IGNORE
-    for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
-      if grep -q -E '(^kind: Secret$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)';then
-        FILES_IGNORE+=("$file")
-      fi
-    done
+    do_find_pre_enc_files
   fi
 
   # Get candidate files to encrypt
@@ -52,7 +61,7 @@ function do_get_files_encrypt() {
   for IGNORE_FILE in "${FILES_IGNORE[@]}"; do
     for CAND_FILE in "${FILES_CAND[@]}"; do
       if [ "$IGNORE_FILE" = "$CAND_FILE" ]; then
-        FILES_ENCRYPT=("${FILES_CAND[@]/$CAND_FILE}")
+        FILES_ENCRYPT=("${FILES_CAND[@]/$CAND_FILE/}")
       fi
     done
   done
@@ -160,7 +169,6 @@ function do_get_files_decrypt() {
   fi
 }
 
-
 function do_decrypt_files() {
   echo
   if [ "$FILES_DECRYPT_COUNT" -eq 1 ]; then
@@ -179,7 +187,7 @@ function do_decrypt_files() {
   #git commit -m "Decrypted files: ${FILES_DECRYPT[@]}"
 
   EXIT_STATUS=0
-  
+
   echo
   echo "- Decryption complete."
 }
