@@ -22,15 +22,27 @@ function do_get_files_encrypt() {
   if [ -f "$SEARCH_DIR/.k8s_password_hooks_ignore" ]; then
     # Read the ignore file and create an array of ignored files
     FILES_IGNORE=($(cat "$SEARCH_DIR/.k8s_password_hooks_ignore"))
+    echo -e "  ${YELLOW}INFO:${ENDCOLOR} Found $SEARCH_DIR/.k8s_password_hooks_ignore"
+    echo -e "       There are ${#FILES_IGNORE[@]} in your ignore file."
+    # Find files that are already encrypted and add them to $FILES_IGNORE
+    FILES_ENCRYPTED_COUNT=0
+    for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
+      if grep -q -E '(^kind: Secret$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)';then
+        FILES_IGNORE+=("$file")
+        # Add 1 to the count of ecncrypted files
+        FILES_ENCRYPTED_COUNT=$((FILES_ENCRYPTED_COUNT+1))
+      fi
+    done
+    echo -e "       There are $FILES_ENCRYPTED_COUNT encrypted files in your repo, adding them to the ignore list."
+  else
+    # Create an empty array of ignored files
+    FILES_IGNORE=()
     # Find files that are already encrypted and add them to $FILES_IGNORE
     for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
       if grep -q -E '(^kind: Secret$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)';then
         FILES_IGNORE+=("$file")
       fi
     done
-  else
-    # Create an empty array of ignored files
-    FILES_IGNORE=()
   fi
 
   # Get candidate files to encrypt
@@ -57,6 +69,7 @@ function do_get_files_encrypt() {
 
   # Check to see if any files were found
   if [ -z "$FILES_ENCRYPT" ]; then
+    echo
     echo -e "  ${GREEN}OK.${ENDCOLOR} - No files to encrypt"
     echo
     export EXIT_STATUS=0
