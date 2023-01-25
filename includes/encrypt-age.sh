@@ -66,11 +66,10 @@ function do_get_files_encrypt() {
     done
   done
     echo -e "        There are ${#FILES_ENCRYPT} files to encrypt"
-
+    echo
   # List the files to encrypt
   if [ ${#FILES_ENCRYPT[@]} -ne 0 ]; then
     for FILE in "${FILES_ENCRYPT[@]}"; do
-      echo
       echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $FILE"
     done
   fi
