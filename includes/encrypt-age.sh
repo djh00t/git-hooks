@@ -9,23 +9,43 @@ function do_get_files_encrypt() {
   # The directory to search
   SEARCH_DIR="."
 
-  # The array to store the result files
+  # Create array to store candidate files
+  FILES_CAND=()
+
+  # Create array to store the result files
   FILES_ENCRYPT=()
 
-  # The variable to store the number of result files
+  # Create variable to store the number of result files
   FILES_ENCRYPT_COUNT=0
 
   # Check if the ignore file exists
   if [ -f "$SEARCH_DIR/.k8s_password_hooks_ignore" ]; then
     # Read the ignore file and create an array of ignored files
-    IGNORE_FILES=($(cat "$SEARCH_DIR/.k8s_password_hooks_ignore"))
+    FILES_IGNORE=($(cat "$SEARCH_DIR/.k8s_password_hooks_ignore"))
+    # Find files that are already encrypted and add them to $FILES_IGNORE
+    for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
+      if grep -q -E '(^kind: Secret$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)';then
+        FILES_IGNORE+=("$file")
+      fi
+    done
   else
     # Create an empty array of ignored files
-    IGNORE_FILES=()
+    FILES_IGNORE=()
   fi
 
-  # Find all YAML files with potential secrets in them
-  FILES_ENCRYPT=($(find $SEARCH_DIR \( -name "*.yml" -o -name "*.yaml" \) -exec grep -l -E '^(data:|stringData:)$' {} \;| xargs grep -l -E -v 'sops:|encrypted_regex: ^(data|stringData)$'))
+  # Get candidate files to encrypt
+  FILES_CAND=($(find $SEARCH_DIR \( -name "*.yml" -o -name "*.yaml" \) -exec grep -l -E '^(data:|stringData:)$' {} \;))
+
+  # Remove ignored files from the candidate files and store in $FILES_ENCRYPT
+  for IGNORE_FILE in "${FILES_IGNORE[@]}"; do
+    for CAND_FILE in "${FILES_CAND[@]}"; do
+      if [ "$IGNORE_FILE" = "$CAND_FILE" ]; then
+        FILES_ENCRYPT=("${FILES_CAND[@]/$CAND_FILE}")
+      fi
+    done
+  done
+
+  # Count the number of files to encrypt
   FILES_ENCRYPT_COUNT=$(echo "${#FILES_ENCRYPT[@]}")
 
   # List the files to encrypt
@@ -87,16 +107,16 @@ function do_get_files_decrypt() {
   # Check if the ignore file exists
   if [ -f "$SEARCH_DIR/.k8s_password_hooks_ignore" ]; then
     # Read the ignore file and create an array of ignored files
-    IGNORE_FILES=($(cat "$SEARCH_DIR/.k8s_password_hooks_ignore"))
+    FILES_IGNORE=($(cat "$SEARCH_DIR/.k8s_password_hooks_ignore"))
   else
     # Create an empty array of ignored files
-    IGNORE_FILES=()
+    FILES_IGNORE=()
   fi
 
   # Find all yaml files in the search directory
   for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
     # Check if the file is in the ignore list
-    if [[ ! " ${IGNORE_FILES[@]} " =~ " ${file} " ]]; then
+    if [[ ! " ${FILES_IGNORE[@]} " =~ " ${file} " ]]; then
       # Check if the file contains "sops:" and "encrypted_regex: ^(data|stringData)$" and "kind: Secret" and "stringData:""
       if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && grep -q "data:" "$file" && grep -q "sops:" "$file" && grep -q "encrypted_regex:" "$file"; then
         # Add the file to the result array
