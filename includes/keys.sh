@@ -23,9 +23,11 @@ function do_check_age_prv_key() {
   if [ -f "$LINUX_PATH" ]; then
     echo -e "  ${GREEN}OK.${ENDCOLOR}"
     echo
+    export EXIT_STATUS=0
   elif [ -f "$MACOS_PATH" ]; then
     echo -e "  ${GREEN}OK.${ENDCOLOR}"
     echo
+    export EXIT_STATUS=0
   else
     echo
     echo -e "  ${RED}╔══════════════════════════════════════════════════════════════╗${ENDCOLOR}"
@@ -50,6 +52,7 @@ function do_check_age_pub_key() {
   if [ -f "$PUB_AGE" ]; then
     echo -e "  ${GREEN}OK.${ENDCOLOR}"
     echo
+    export EXIT_STATUS=0
   else
     echo
     echo -e "  ${RED}╔══════════════════════════════════════════════════════════════╗${ENDCOLOR}"
@@ -66,7 +69,9 @@ function do_check_age_pub_key() {
 }
 
 # Ensure that age private and public key is configured
-if [ !-z $EXIT_STATUS = 0 ]; then
+if [ -eq $EXIT_STATUS = 1 ]; then
+  exit 1
+else
   do_check_age_prv_key
   do_check_age_pub_key
 fi
