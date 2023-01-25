@@ -16,9 +16,11 @@ function do_check_age_prv_key() {
 
   # The path for linux
   LINUX_PATH="~/.config/sops/age/keys.txt"
+  export EXIT_STATUS=0
 
   # The path for MacOS
   MACOS_PATH="/Users/$USER/.config/sops/age/keys.txt"
+  export EXIT_STATUS=0
 
   if [ -f "$LINUX_PATH" ]; then
     echo -e "  ${GREEN}OK.${ENDCOLOR}"
