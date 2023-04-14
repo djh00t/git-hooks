@@ -6,6 +6,7 @@
 # Import public key
 export KEY_AGE=$(grep -v '^#' .age.pub)
 export KEY_AGE_PRV=$(grep -v '^#' $HOME/.config/sops/age/keys.txt)
+export EXIT_STATUS=0
 
 function do_check_age_prv_key() {
   # Ensure that age private key exists
