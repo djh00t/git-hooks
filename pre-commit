@@ -6,6 +6,9 @@
 # Add dependencies and includes
 source includes/color.sh
 source includes/depends.sh
+# Make sure pre-commit is installed
+do_check_pre_commit
+
 source includes/encrypt-age.sh
 source includes/keys.sh
 
@@ -29,23 +32,36 @@ if [ ${#FILES_ENCRYPT[@]} -gt 0 ]; then
   do_encrypt_files
 fi
 
+# Check if there are any terraform files in the repo.
+TF=$(find . -name "*.tf" -type f | wc -l)
+
+# IF $TF is greater than 0 run do_check_tflint
+if [ $TF -gt 0 ]; then
+  do_check_tflint
+fi
+
 ###
 ### Run pre-commit hooks
 ###
+
 INSTALL_PYTHON=$(which python3)
 ARGS=(hook-impl --config=.pre-commit-config.yaml --hook-type=pre-commit)
-pre-commit "${ARGS[@]}"
+# end templated
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ARGS+=(--hook-dir "$HERE" -- "$@")
 
 if [ -x "$INSTALL_PYTHON" ]; then
-  exec "$INSTALL_PYTHON" -mpre_commit "${ARGS[@]}"
-elif command -v pre-commit >/dev/null; then
-  exec pre-commit "${ARGS[@]}"
+    exec "$INSTALL_PYTHON" -mpre_commit "${ARGS[@]}"
+elif command -v pre-commit > /dev/null; then
+    exec pre-commit "${ARGS[@]}"
+    
 else
-  echo '`pre-commit` not found.  Did you forget to activate your virtualenv?' 1>&2
-  export EXIT_STATUS=1
+    echo '`pre-commit` not found.  Did you forget to activate your virtualenv?' 1>&2
+    exit 1
 fi
+echo "Exit Code: $?"
+
+git push
 
 exit $EXIT_STATUS
