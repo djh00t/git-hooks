@@ -8,14 +8,17 @@ function do_find_pre_enc_files() {
   # Set the number of encrypted files to 0
   FILES_ENCRYPTED_COUNT=0
 
-  # Find all yaml files in the search directory
-  for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
+  # Get regex to use for finding files that should be encrypted/decrypted
+  do_get_sops_path_regex "$SEARCH_DIR"
 
+  # Recursively find all yaml files in the search directory using the regex in $SOPS_PATH_REGEX.
+  # $SOPS_PATH_REGEX will be in RE2 syntax, so we need to use the -E flag for grep.
+  for FILE in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml" | grep -E $SOPS_PATH_REGEX); do
     # Check if the file contains "sops:" and "encrypted_regex: ^(data|stringData)$" and "kind: Secret" and "stringData:"
-    if grep -q -E '(^kind: (Secret|ConfigMap)$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)' "$file"; then
+    if grep -q -E '(^sops:$)' "$FILE" && grep -q -E '(^    encrypted_regex:)' "$FILE"; then
 
       # Add the file to the FILES_IGNORE array
-      FILES_IGNORE+=("$file")
+      FILES_IGNORE+=("$FILE")
 
       # Add 1 to the count of encrypted files
       FILES_ENCRYPTED_COUNT=$((FILES_ENCRYPTED_COUNT + 1))
@@ -35,6 +38,50 @@ function do_find_pre_enc_files() {
   fi
 }
 
+# Find the correct sops regex to use when finding files to encrypt/decrypt
+function do_get_sops_path_regex(){
+  # Set VAL to the first argument passed to the function
+  VAL=$1
+  
+  # Strip the directory from the file name if it is a file otherwise set VAL to FILE_DIR
+  if [ -f "$VAL" ]; then
+    # Get the directory of the file being encrypted
+    FILE_DIR=$(dirname "$VAL")
+  else
+    # Set FILE_DIR to VAL
+    FILE_DIR="$VAL"
+  fi
+
+  # Set the regex to an empty string
+  SOPS_PATH_REGEX=""
+
+  # Create an array of all ".sops.yaml" files in the repo
+  SOPS_YAML_FILES=($(find "$(git rev-parse --show-toplevel)" -name ".sops.yaml"))
+
+  # Iterate over the SOPS_YAML_FILES array and find the first record which is either in the same directory as
+  # the file being encrypted or closest in a parent directory
+  for SOPS_YAML_FILE in "${SOPS_YAML_FILES[@]}"; do
+    # Get the directory of the SOPS_YAML_FILE
+    SOPS_YAML_DIR=$(dirname "$SOPS_YAML_FILE")
+
+    # Check if the SOPS_YAML_DIR is the same as the FILE_DIR or if the FILE_DIR is a subdirectory of the SOPS_YAML_DIR
+    if [ "$SOPS_YAML_DIR" = "$FILE_DIR" ] || [[ "$FILE_DIR" =~ ^"$SOPS_YAML_DIR" ]]; then
+      # Get the regex from the SOPS_YAML_FILE
+      SOPS_PATH_REGEX=$(grep -v -E '^\s*#' "$SOPS_YAML_FILE" | grep -E '\s*path_regex:' | awk '{print $3}')
+      # Break out of the loop
+      break
+    else
+      # Set the SOPS_PATH_REGEX to the default regex
+      echo "No .sops.yaml file found in the same directory as $VAL, using default regex."
+      SOPS_PATH_REGEX=".*.yaml"
+    fi
+  done
+  
+  # Export the SOPS_PATH_REGEX variable so other functions can use it
+  export SOPS_PATH_REGEX
+}
+
+
 function do_get_files_encrypt() {
   echo "- Pre-commit unencrypted secrets check:"
 
@@ -53,15 +100,26 @@ function do_get_files_encrypt() {
   # Get root of current git repo and set as SEARCH_DIR
   SEARCH_DIR=$(git rev-parse --show-toplevel)
 
-  # Find candidate files in $SEARCH_DIR that have a yaml or yml file extension, contain "data:" or "stringData:" and add them to the FILES_CAND array
-  for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
-    if grep -q -E '(^kind: (Secret|ConfigMap)$)' "$file" && grep -q -E '(^data:|^stringData:)' "$file"; then
+  # Get regex to use for finding files that should be encrypted/decrypted
+  do_get_sops_path_regex "$SEARCH_DIR"
+
+  # Find candidate files in $SEARCH_DIR that have a yaml or yml file extension, match the regex in .sops.yaml,
+  # contain "data:" or "stringData:" and add them to the FILES_CAND array
+  for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml" | grep -E $SOPS_PATH_REGEX); do
+    if grep -q -E '(^data:|^stringData:)' "$file"; then
       FILES_CAND+=("$file")
     fi
   done
 
   # Echo the number of candidate files
   echo -e "        There are ${#FILES_CAND[@]} candidate files in your repo."
+
+  # Loop through the FILES_CAND array, listing all the candindate files
+  for FILE in "${FILES_CAND[@]}"; do
+      # Echo the candidate files
+      echo -e "  ${GREEN}ADDED:${ENDCOLOR} $FILE"
+  done
+
 
   # Check if the ignore file exists
   if [ -f "$SEARCH_DIR/.k8s_password_hooks_ignore" ]; then
@@ -106,6 +164,7 @@ function do_encrypt_files() {
 
   # Iterate over ${FILES_ENCRYPT[@]} and encrypt each file
   for FILE in "${FILES_ENCRYPT[@]}"; do
+
     do_pretty_processing "sops --age=$KEY_AGE --encrypt --encrypted-regex ^(data|stringData)$ --in-place $FILE"
     #git add -f $FILE
   done

@@ -12,6 +12,14 @@ do_check_pre_commit
 source includes/encrypt-age.sh
 source includes/keys.sh
 
+# Find root of git repo
+GIT_ROOT=$(git rev-parse --show-toplevel)
+
+# Ensure that .pre-commit-config.yaml is added to the commit if it has changed
+if [ -f "$GIT_ROOT/.pre-commit-config.yaml" ]; then
+  git add -f $GIT_ROOT/.pre-commit-config.yaml
+fi
+
 export EXIT_STATUS=0
 
 # Disable pre-commit errors if there is no config file
