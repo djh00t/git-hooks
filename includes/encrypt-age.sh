@@ -3,17 +3,27 @@
 ### Age Encrypt/decrypt functions
 ###
 
-# Find files that are already encrypted
+# Find files that are already encrypted and add them to $FILES_IGNORE
 function do_find_pre_enc_files() {
-  # Find files that are already encrypted and add them to $FILES_IGNORE
+  # Set the number of encrypted files to 0
   FILES_ENCRYPTED_COUNT=0
+
+  # Find all yaml files in the search directory
   for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
+
+    # Check if the file contains "sops:" and "encrypted_regex: ^(data|stringData)$" and "kind: Secret" and "stringData:"
     if grep -q -E '(^kind: (Secret|ConfigMap)$)' "$file" && grep -q -E '(^sops:$)' "$file" && grep -q -E '(^    encrypted_regex:)' "$file"; then
-      export FILES_IGNORE+=("$file")
-      # Add 1 to the count of ecncrypted files
+
+      # Add the file to the FILES_IGNORE array
+      FILES_IGNORE+=("$file")
+
+      # Add 1 to the count of encrypted files
       FILES_ENCRYPTED_COUNT=$((FILES_ENCRYPTED_COUNT + 1))
     fi
   done
+
+  # Export the ${FILES_IGNORE[@]} array so other functions can use it
+  export FILES_IGNORE
 
   # Announce the number of encrypted files found
   if [ "$FILES_ENCRYPTED_COUNT" -eq 0 ]; then
@@ -40,6 +50,19 @@ function do_get_files_encrypt() {
   # Create variable to store the number of result files
   FILES_ENCRYPT_COUNT=0
 
+  # Get root of current git repo and set as SEARCH_DIR
+  SEARCH_DIR=$(git rev-parse --show-toplevel)
+
+  # Find candidate files in $SEARCH_DIR that have a yaml or yml file extension, contain "data:" or "stringData:" and add them to the FILES_CAND array
+  for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
+    if grep -q -E '(^kind: (Secret|ConfigMap)$)' "$file" && grep -q -E '(^data:|^stringData:)' "$file"; then
+      FILES_CAND+=("$file")
+    fi
+  done
+
+  # Echo the number of candidate files
+  echo -e "        There are ${#FILES_CAND[@]} candidate files in your repo."
+
   # Check if the ignore file exists
   if [ -f "$SEARCH_DIR/.k8s_password_hooks_ignore" ]; then
     # Read the ignore file and create an array of ignored files
@@ -55,47 +78,21 @@ function do_get_files_encrypt() {
     do_find_pre_enc_files
   fi
 
-  # Get candidate files to encrypt
-  export FILES_CAND=($(find $SEARCH_DIR \( -name "*.yml" -o -name "*.yaml" \) -exec grep -lE '^(data:|stringData:)$' {} \; | xargs grep -EL '((config|values)\.(yml|yaml):)'))
-  echo -e "        There are ${#FILES_CAND[@]} candidate files"
-
   # Remove ${FILES_IGNORE[@]} from ${FILES_CAND[@]}
-  for CAND_FILE in "${FILES_CAND[@]}"; do
-    IGNORE=0
-
-    for IGNORE_FILE in "${FILES_IGNORE[@]}"; do
-      if [ "${CAND_FILE}" = "${IGNORE_FILE}" ]; then
-        IGNORE=1
-      fi
-    done
-
-    # only add to encrypted array if wasnt ignored
-    if [ "${IGNORE}" -eq 0 ]; then
-      FILES_ENCRYPT+=("${CAND_FILE}")
-    fi
-
+  for FILE in "${FILES_IGNORE[@]}"; do
+    # Echo the file being removed from the FILES_CAND array
+    echo -e "  ${YELLOW}IGNORING:${ENDCOLOR} $FILE"
+    # Remove the file from the FILES_CAND array
+    FILES_CAND=("${FILES_CAND[@]/$FILE/}")
   done
 
+  # Add the remaining files to the FILES_ENCRYPT array, ignoring any blank or empty records
+  for FILE in "${FILES_CAND[@]}"; do
+    if [ -n "$FILE" ]; then
+      FILES_ENCRYPT+=("$FILE")
+    fi
+  done
 
-  if [ ${#FILES_ENCRYPT[@]} -ne 0 ]; then
-    echo -e "        There are ${#FILES_ENCRYPT[@]} files to encrypt"
-  fi
-  echo
-  
-  # List the files to ignore
-  if [ ${#FILES_IGNORE[@]} -ne 0 ]; then
-    for FILE in "${FILES_IGNORE[@]}"; do
-      echo -e "  ${YELLOW}IGNORING:${ENDCOLOR} $FILE"
-    done
-    echo
-  fi
-
-  # List the files to encrypt
-  if [ ${#FILES_ENCRYPT[@]} -ne 0 ]; then
-    for FILE in "${FILES_ENCRYPT[@]}"; do
-      echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $FILE"
-    done
-  fi
 }
 
 function do_encrypt_files() {
@@ -140,21 +137,22 @@ function do_get_files_decrypt() {
     FILES_IGNORE=()
   fi
 
-  # Find all yaml files in the search directory
+  # Set FILES_DECRYPT_COUNT to 0
+  FILES_DECRYPT_COUNT=0
+
+  # Find candidate files in $SEARCH_DIR that have a yaml or yml file extension, contain "sops:" and "encrypted_regex: ^(data|stringData)$" and "kind: Secret" and "stringData: and add them to the FILES_DECRYPT array
   for file in $(find "$SEARCH_DIR" -name "*.yaml" -o -name "*.yml"); do
-    # Check if the file is in the ignore list
-    if [[ ! " ${FILES_IGNORE[@]} " =~ " ${file} " ]]; then
-      # Check if the file contains "sops:" and "encrypted_regex: ^(data|stringData)$" and "kind: Secret" and "stringData:""
-      if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && grep -q "data:" "$file" && grep -q "sops:" "$file" && grep -q "encrypted_regex:" "$file"; then
-        # Add the file to the result array
-        FILES_DECRYPT+=("$file")
-        echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $file"
-        # Increment the result count
-        FILES_DECRYPT_COUNT=$((FILES_DECRYPT_COUNT + 1))
-      fi
+    if grep -q "kind: Secret" "$file" && grep -q "stringData:" "$file" && grep -q "data:" "$file" && grep -q "sops:" "$file" && grep -q "encrypted_regex:" "$file"; then
+      echo -e "  ${YELLOW}ADDING:${ENDCOLOR} $file"
+      FILES_DECRYPT+=("$file")
+      # Increment the result count
+      FILES_DECRYPT_COUNT=$((FILES_DECRYPT_COUNT + 1))
     fi
     export EXIT_STATUS=0
   done
+
+  # Echo the number of candidate files
+  echo -e "        There are ${#FILES_DECRYPT[@]} candidate files in your repo."
 
   # Print the result array
   # echo "FILES_DECRYPT: ${FILES_DECRYPT[@]}"
