@@ -124,6 +124,34 @@ function os_macos() {
     echo -e "  ${GREEN}OK.${ENDCOLOR}"
 }
 
+# Check to see if pre-commit is installed on the machine and this repo. If it isn't, install it.
+function do_check_pre_commit(){
+    # Check if pre-commit is installed
+    if ! command -v pre-commit &>/dev/null; then
+        echo -e " ${YELLOW}pre-commit could not be found, installing now${ENDCOLOR}"
+        $(command -v pip3) install pre-commit
+    fi
+
+    # Check if pre-commit is installed in this repo
+    if [ ! -f .git/hooks/pre-commit ]; then
+        echo -e " ${YELLOW}pre-commit is not installed in this repo, installing now${ENDCOLOR}"
+        pre-commit install
+    fi
+}
+
+# Check to see if tflint is installed on the machine. If it isn't, install it making allowances for macOS and linux.
+function do_check_tflint(){
+    # Check if tflint is installed
+    if ! command -v tflint &>/dev/null; then
+        echo -e " ${YELLOW}tflint could not be found, installing now${ENDCOLOR}"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            brew install tflint
+        else
+            curl -L https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+        fi
+    fi
+}
+
 # Detect operating system
 detect_os_and_version
 
