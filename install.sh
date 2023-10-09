@@ -16,6 +16,20 @@ if [[ ! -d .git/hooks ]]; then
   mkdir .git/hooks
 fi
 
+# Install the pre-commit pip package if it isn't already installed
+echo "Installing the pre-commit pip package..."
+echo
+if [[ ! -d .git/hooks ]]; then
+  pip install pre-commit
+fi
+
+# Install precommit into this repo if it isn't already installed
+echo "Installing pre-commit into this repo..."
+echo
+if [[ ! -d .git/hooks ]]; then
+  pre-commit install
+fi
+
 # Make sure that an includes directory exists in the repo root
 echo "Making sure that the includes directory exists..."
 echo
