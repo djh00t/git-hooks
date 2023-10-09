@@ -19,7 +19,7 @@ cd $REPO_ROOT
 echo "Making sure that the hooks directory exists..."
 echo
 if [[ ! -d .git/hooks ]]; then
-  mkdir .git/hooks
+  mkdir -p .git/hooks
 fi
 
 # Install the pre-commit pip package if it isn't already installed
@@ -47,7 +47,7 @@ echo "Making sure that the includes directory exists..."
 echo
 cd $REPO_ROOT
 if [[ ! -d includes ]]; then
-  mkdir includes
+  mkdir -p $REPO_ROOT/includes
 fi
 
 # Add git-hooks as a submodule in the repo includes directory if it isn't
