@@ -69,6 +69,7 @@ fi
 echo "Symlinking the pre-commit hook..."
 echo
 cd $REPO_ROOT
+rm -rf .git/hooks/pre-commit
 if [[ ! -f .git/hooks/pre-commit ]]; then
   ln -s includes/git_hooks/pre-commit .git/hooks/pre-commit
 else
@@ -80,6 +81,7 @@ fi
 echo "Symlinking the post-commit hook..."
 echo
 cd $REPO_ROOT
+rm -rf .git/hooks/post-commit
 if [[ ! -f .git/hooks/post-commit ]]; then
   ln -s includes/git_hooks/post-commit .git/hooks/post-commit
 else
